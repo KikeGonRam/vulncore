@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 )
 
 // ScannerPath is the path to the compiled Rust binary
@@ -60,14 +61,14 @@ type ServiceInfo struct {
 
 // ScanSummary mirrors Rust's ScanSummary
 type ScanSummary struct {
-	TotalPortsScanned  int `json:"total_ports_scanned"`
-	OpenPorts          int `json:"open_ports"`
-	TotalPackages      int `json:"total_packages"`
+	TotalPortsScanned    int `json:"total_ports_scanned"`
+	OpenPorts            int `json:"open_ports"`
+	TotalPackages        int `json:"total_packages"`
 	TotalVulnerabilities int `json:"total_vulnerabilities"`
-	Critical           int `json:"critical"`
-	High               int `json:"high"`
-	Medium             int `json:"medium"`
-	Low                int `json:"low"`
+	Critical             int `json:"critical"`
+	High                 int `json:"high"`
+	Medium               int `json:"medium"`
+	Low                  int `json:"low"`
 }
 
 // ScanOutput is the top-level output from the Rust scanner
@@ -119,8 +120,13 @@ func runScanner(args []string) (*ScanOutput, error) {
 		return nil, fmt.Errorf("failed to run scanner: %w", err)
 	}
 
+	// strip ANSI escape sequences (some toolchains or embedded outputs may include
+	// colored warnings) so the JSON parser receives clean input.
+	re := regexp.MustCompile("\\x1b\\[[0-9;]*[ -/]*[@-~]")
+	clean := re.ReplaceAll(out, []byte(""))
+
 	var result ScanOutput
-	if err := json.Unmarshal(out, &result); err != nil {
+	if err := json.Unmarshal(clean, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse scanner output: %w", err)
 	}
 

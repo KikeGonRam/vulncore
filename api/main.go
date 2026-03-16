@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -33,9 +34,18 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Static files (dashboard)
-	r.Static("/dashboard", "../web")
-	r.StaticFile("/", "../web/index.html")
+	// Static files (dashboard) - resolve path relative to the running executable so
+	// the server works even when the working directory differs from the repo root.
+	exe, _ := os.Executable()
+	exeDir := filepath.Dir(exe)
+	webDir := filepath.Join(exeDir, "..", "web")
+	if _, err := os.Stat(webDir); os.IsNotExist(err) {
+		// fallback to repository-relative path when running in development
+		webDir = "../web"
+	}
+
+	r.Static("/dashboard", webDir)
+	r.StaticFile("/", filepath.Join(webDir, "index.html"))
 
 	// API routes
 	api := r.Group("/api")
