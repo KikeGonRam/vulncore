@@ -2,8 +2,7 @@
 scanner/target/
 Cargo.lock
 
-# Go
-api/go.sum
+# Go — NO incluir go.sum aquí, debe estar en el repo
 dist/
 *.exe
 

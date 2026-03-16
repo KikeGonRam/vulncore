@@ -17,12 +17,12 @@ func NewDashboardHandler(database *db.DB) *DashboardHandler {
 }
 
 type DashboardStats struct {
-	TotalScans           int64                  `json:"total_scans"`
-	TotalVulnerabilities int64                  `json:"total_vulnerabilities"`
-	TotalOpenPorts       int64                  `json:"total_open_ports"`
-	SeverityBreakdown    map[string]int64       `json:"severity_breakdown"`
-	LastScanAt           *time.Time             `json:"last_scan_at"`
-	TopVulnerablePackages []PackageVulnCount    `json:"top_vulnerable_packages"`
+	TotalScans            int64              `json:"total_scans"`
+	TotalVulnerabilities  int64              `json:"total_vulnerabilities"`
+	TotalOpenPorts        int64              `json:"total_open_ports"`
+	SeverityBreakdown     map[string]int64   `json:"severity_breakdown"`
+	LastScanAt            *time.Time         `json:"last_scan_at"`
+	TopVulnerablePackages []PackageVulnCount `json:"top_vulnerable_packages"`
 }
 
 type PackageVulnCount struct {
@@ -48,23 +48,28 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 		stats.SeverityBreakdown[s] = count
 	}
 
-	// Last scan
-	var lastScan db.Scan
-	if err := h.db.Where("status = ?", "done").Order("finished_at DESC").First(&lastScan).Error; err == nil {
-		stats.LastScanAt = lastScan.FinishedAt
+	// Last scan — use Find+Limit instead of First to avoid "record not found" log
+	var lastScans []db.Scan
+	h.db.Where("status = ?", "done").
+		Order("finished_at DESC").
+		Limit(1).
+		Find(&lastScans)
+	if len(lastScans) > 0 {
+		stats.LastScanAt = lastScans[0].FinishedAt
 	}
 
-	// Top vulnerable packages (raw query for grouping)
+	// Top vulnerable packages
 	rows, err := h.db.Raw(`
 		SELECT package_name, COUNT(*) as count,
 		MAX(CASE severity
 			WHEN 'CRITICAL' THEN 4
-			WHEN 'HIGH' THEN 3
-			WHEN 'MEDIUM' THEN 2
-			WHEN 'LOW' THEN 1
+			WHEN 'HIGH'     THEN 3
+			WHEN 'MEDIUM'   THEN 2
+			WHEN 'LOW'      THEN 1
 			ELSE 0 END) as max_sev_num,
 		MAX(severity) as max_severity
 		FROM vulnerabilities
+		WHERE deleted_at IS NULL
 		GROUP BY package_name
 		ORDER BY max_sev_num DESC, count DESC
 		LIMIT 10
@@ -94,15 +99,17 @@ type TimelinePoint struct {
 // GetTimeline returns vulnerability counts over time for charts
 func (h *DashboardHandler) GetTimeline(c *gin.Context) {
 	rows, err := h.db.Raw(`
-		SELECT 
+		SELECT
 			DATE(s.finished_at) as date,
 			SUM(CASE WHEN v.severity = 'CRITICAL' THEN 1 ELSE 0 END) as critical,
-			SUM(CASE WHEN v.severity = 'HIGH' THEN 1 ELSE 0 END) as high,
-			SUM(CASE WHEN v.severity = 'MEDIUM' THEN 1 ELSE 0 END) as medium,
-			SUM(CASE WHEN v.severity = 'LOW' THEN 1 ELSE 0 END) as low
+			SUM(CASE WHEN v.severity = 'HIGH'     THEN 1 ELSE 0 END) as high,
+			SUM(CASE WHEN v.severity = 'MEDIUM'   THEN 1 ELSE 0 END) as medium,
+			SUM(CASE WHEN v.severity = 'LOW'      THEN 1 ELSE 0 END) as low
 		FROM scans s
-		LEFT JOIN vulnerabilities v ON v.scan_id = s.id
-		WHERE s.status = 'done' AND s.finished_at > datetime('now', '-30 days')
+		LEFT JOIN vulnerabilities v ON v.scan_id = s.id AND v.deleted_at IS NULL
+		WHERE s.status = 'done'
+		  AND s.deleted_at IS NULL
+		  AND s.finished_at > datetime('now', '-30 days')
 		GROUP BY DATE(s.finished_at)
 		ORDER BY date ASC
 	`).Rows()
@@ -120,6 +127,11 @@ func (h *DashboardHandler) GetTimeline(c *gin.Context) {
 		timeline = append(timeline, point)
 	}
 
+	// Return empty array instead of null when no data
+	if timeline == nil {
+		timeline = []TimelinePoint{}
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": timeline})
 }
 
@@ -134,7 +146,7 @@ func (h *DashboardHandler) GetHistory(c *gin.Context) {
 		PortCount int64 `json:"port_count"`
 	}
 
-	var result []ScanWithCounts
+	result := make([]ScanWithCounts, 0, len(scans))
 	for _, s := range scans {
 		var vulnCount, portCount int64
 		h.db.Model(&db.Vulnerability{}).Where("scan_id = ?", s.ID).Count(&vulnCount)

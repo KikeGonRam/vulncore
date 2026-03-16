@@ -8,7 +8,7 @@ on:
 
 jobs:
 
-  # ── Rust Scanner ────────────────────────────────────────────────────────────
+  # ── Rust Scanner ──────────────────────────────────────────
   rust-build-test:
     name: Rust — Build & Test
     runs-on: ubuntu-latest
@@ -52,7 +52,7 @@ jobs:
           name: vulncore-scanner-linux-amd64
           path: scanner/target/release/vulncore-scanner
 
-  # ── Go API ──────────────────────────────────────────────────────────────────
+  # ── Go API ────────────────────────────────────────────────
   go-build-test:
     name: Go — Build & Test
     runs-on: ubuntu-latest
@@ -64,11 +64,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: api/go.sum
 
-      - name: Download modules
+      - name: Install dependencies
         working-directory: api
-        run: go mod download
+        run: |
+          go mod tidy
+          go mod download
 
       - name: Vet
         working-directory: api
@@ -88,7 +89,7 @@ jobs:
           name: vulncore-api-linux-amd64
           path: api/vulncore-api
 
-  # ── Release Package ──────────────────────────────────────────────────────────
+  # ── Release Package ───────────────────────────────────────
   package:
     name: Package Release
     runs-on: ubuntu-latest
