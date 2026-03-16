@@ -49,11 +49,12 @@ func (h *ScanHandler) RunFullScan(c *gin.Context) {
 	}
 
 	if err := h.db.Create(&scan).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create scan record"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create scan record: " + err.Error(),
+		})
 		return
 	}
 
-	// Run scan asynchronously
 	go h.executeScan(scanID, req.Target, req.PortRange)
 
 	c.JSON(http.StatusAccepted, gin.H{
@@ -67,23 +68,21 @@ func (h *ScanHandler) executeScan(scanID, target, portRange string) {
 	result, err := bridge.RunFull(target, portRange)
 	finished := time.Now()
 
-	updates := map[string]interface{}{
-		"finished_at": &finished,
-	}
-
 	if err != nil {
-		updates["status"] = "error"
-		h.db.Model(&db.Scan{}).Where("id = ?", scanID).Updates(updates)
+		h.db.Model(&db.Scan{}).Where("id = ?", scanID).Updates(map[string]interface{}{
+			"status":      "error",
+			"finished_at": &finished,
+		})
 		return
 	}
 
-	// Persist results
 	raw, _ := json.Marshal(result)
-	updates["status"] = "done"
-	updates["result_json"] = string(raw)
-	h.db.Model(&db.Scan{}).Where("id = ?", scanID).Updates(updates)
+	h.db.Model(&db.Scan{}).Where("id = ?", scanID).Updates(map[string]interface{}{
+		"status":      "done",
+		"finished_at": &finished,
+		"result_json": string(raw),
+	})
 
-	// Save ports
 	for _, p := range result.Ports {
 		h.db.Create(&db.Port{
 			ScanID:   scanID,
@@ -96,7 +95,6 @@ func (h *ScanHandler) executeScan(scanID, target, portRange string) {
 		})
 	}
 
-	// Save packages
 	for _, pkg := range result.Packages {
 		h.db.Create(&db.Package{
 			ScanID:  scanID,
@@ -107,7 +105,6 @@ func (h *ScanHandler) executeScan(scanID, target, portRange string) {
 		})
 	}
 
-	// Save vulnerabilities
 	for _, v := range result.Vulnerabilities {
 		refs, _ := json.Marshal(v.References)
 		h.db.Create(&db.Vulnerability{
@@ -134,7 +131,6 @@ func (h *ScanHandler) ScanPorts(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, result)
 }
 
@@ -145,19 +141,28 @@ func (h *ScanHandler) ScanPackages(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, result)
 }
 
-// GetScanStatus returns the current status of a scan
+// GetScanStatus returns the current status of a scan.
+// Always returns 200 so the frontend can read the status field and stop polling.
 func (h *ScanHandler) GetScanStatus(c *gin.Context) {
 	scanID := c.Param("id")
 
-	var scan db.Scan
-	if err := h.db.First(&scan, "id = ?", scanID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Scan not found"})
+	var scans []db.Scan
+	h.db.Where("id = ?", scanID).Limit(1).Find(&scans)
+
+	// Scan not found — tell the frontend to stop polling
+	if len(scans) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"scan_id": scanID,
+			"status":  "error",
+			"message": "Scan record not found",
+		})
 		return
 	}
+
+	scan := scans[0]
 
 	resp := gin.H{
 		"scan_id":    scan.ID,
@@ -178,10 +183,9 @@ func (h *ScanHandler) GetScanStatus(c *gin.Context) {
 		}
 	}
 
-	// Add port info
 	if strings.Contains(scan.ScanType, "port") || scan.ScanType == "full" {
 		var ports []db.Port
-		h.db.Where("scan_id = ?", scanID).Find(&ports)
+		h.db.Where("scan_id = ? AND state = ?", scanID, "open").Find(&ports)
 		resp["open_ports"] = len(ports)
 	}
 
