@@ -1,12 +1,14 @@
 package bridge
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"time"
 )
 
 // ScannerPath is the path to the compiled Rust binary
@@ -14,12 +16,15 @@ var ScannerPath = func() string {
 	if p := os.Getenv("VULNCORE_SCANNER_PATH"); p != "" {
 		return p
 	}
-	// Default: look for binary next to the API binary
 	exe, _ := os.Executable()
 	return filepath.Join(filepath.Dir(exe), "vulncore-scanner")
 }()
 
-// PortResult mirrors the Rust PortResult struct
+// ScannerTimeout is the maximum time allowed for a scanner execution.
+// A full scan on a machine with many packages can take several minutes
+// due to per-package OSV API calls (200 ms each).
+const ScannerTimeout = 10 * time.Minute
+
 type PortResult struct {
 	Port     int    `json:"port"`
 	Protocol string `json:"protocol"`
@@ -29,7 +34,6 @@ type PortResult struct {
 	Version  string `json:"version,omitempty"`
 }
 
-// Vulnerability mirrors the Rust Vulnerability struct
 type Vulnerability struct {
 	CveID            string   `json:"cve_id"`
 	PackageName      string   `json:"package_name"`
@@ -42,7 +46,6 @@ type Vulnerability struct {
 	Published        string   `json:"published,omitempty"`
 }
 
-// Package mirrors the Rust Package struct
 type Package struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
@@ -50,7 +53,6 @@ type Package struct {
 	Manager string `json:"manager"`
 }
 
-// ServiceInfo mirrors the Rust ServiceInfo struct
 type ServiceInfo struct {
 	Port        int    `json:"port"`
 	ServiceName string `json:"service_name"`
@@ -59,7 +61,6 @@ type ServiceInfo struct {
 	ExtraInfo   string `json:"extra_info,omitempty"`
 }
 
-// ScanSummary mirrors Rust's ScanSummary
 type ScanSummary struct {
 	TotalPortsScanned    int `json:"total_ports_scanned"`
 	OpenPorts            int `json:"open_ports"`
@@ -71,7 +72,6 @@ type ScanSummary struct {
 	Low                  int `json:"low"`
 }
 
-// ScanOutput is the top-level output from the Rust scanner
 type ScanOutput struct {
 	ScanID          string          `json:"scan_id"`
 	Timestamp       string          `json:"timestamp"`
@@ -83,7 +83,6 @@ type ScanOutput struct {
 	Summary         ScanSummary     `json:"summary"`
 }
 
-// RunPorts executes the Rust port scanner and returns results
 func RunPorts(target, portRange string, timeoutMs, concurrency int) (*ScanOutput, error) {
 	args := []string{
 		"ports",
@@ -92,43 +91,65 @@ func RunPorts(target, portRange string, timeoutMs, concurrency int) (*ScanOutput
 		"--timeout-ms", fmt.Sprintf("%d", timeoutMs),
 		"--concurrency", fmt.Sprintf("%d", concurrency),
 	}
-	return runScanner(args)
+	return runScanner(args, 2*time.Minute)
 }
 
-// RunPackages runs the package scanner + CVE matcher
 func RunPackages() (*ScanOutput, error) {
-	return runScanner([]string{"packages"})
+	return runScanner([]string{"packages"}, ScannerTimeout)
 }
 
-// RunFull runs a complete scan
 func RunFull(target, portRange string) (*ScanOutput, error) {
 	args := []string{
 		"full",
 		"--target", target,
 		"--range", portRange,
 	}
-	return runScanner(args)
+	return runScanner(args, ScannerTimeout)
 }
 
-func runScanner(args []string) (*ScanOutput, error) {
-	cmd := exec.Command(ScannerPath, args...)
+func runScanner(args []string, timeout time.Duration) (*ScanOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, ScannerPath, args...)
 	out, err := cmd.Output()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		return nil, fmt.Errorf("scanner timed out after %s", timeout)
+	}
+
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("scanner exited with code %d: %s", exitErr.ExitCode(), string(exitErr.Stderr))
+			return nil, fmt.Errorf("scanner exited with code %d: %s",
+				exitErr.ExitCode(), string(exitErr.Stderr))
 		}
 		return nil, fmt.Errorf("failed to run scanner: %w", err)
 	}
 
-	// strip ANSI escape sequences (some toolchains or embedded outputs may include
-	// colored warnings) so the JSON parser receives clean input.
-	re := regexp.MustCompile("\\x1b\\[[0-9;]*[ -/]*[@-~]")
+	// Strip ANSI escape sequences from output before JSON parsing
+	re := regexp.MustCompile(`\x1b\[[0-9;]*[ -/]*[@-~]`)
 	clean := re.ReplaceAll(out, []byte(""))
+
+	// Find the JSON object — skip any leading log lines that leaked to stdout
+	start := indexOf(clean, '{')
+	if start > 0 {
+		clean = clean[start:]
+	}
 
 	var result ScanOutput
 	if err := json.Unmarshal(clean, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse scanner output: %w", err)
+		return nil, fmt.Errorf("failed to parse scanner output (len=%d): %w", len(clean), err)
 	}
 
 	return &result, nil
+}
+
+// indexOf returns the index of the first occurrence of b in data, or 0.
+func indexOf(data []byte, b byte) int {
+	for i, v := range data {
+		if v == b {
+			return i
+		}
+	}
+	return 0
 }
