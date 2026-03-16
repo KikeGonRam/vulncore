@@ -42,16 +42,15 @@ func (h *ReportHandler) GetVulnerabilities(c *gin.Context) {
 		Limit(limit).
 		Find(&vulns)
 
-	// Parse references back to arrays
 	type VulnResponse struct {
 		db.Vulnerability
 		ReferenceList []string `json:"reference_list"`
 	}
 
-	var response []VulnResponse
+	response := make([]VulnResponse, 0, len(vulns))
 	for _, v := range vulns {
 		var refs []string
-		json.Unmarshal([]byte(v.References), &refs)
+		json.Unmarshal([]byte(v.References), &refs) //nolint:errcheck
 		response = append(response, VulnResponse{
 			Vulnerability: v,
 			ReferenceList: refs,
@@ -75,7 +74,7 @@ func (h *ReportHandler) GetVulnerabilityDetail(c *gin.Context) {
 	}
 
 	var refs []string
-	json.Unmarshal([]byte(vuln.References), &refs)
+	json.Unmarshal([]byte(vuln.References), &refs) //nolint:errcheck
 
 	c.JSON(http.StatusOK, gin.H{
 		"vulnerability":  vuln,
@@ -83,13 +82,27 @@ func (h *ReportHandler) GetVulnerabilityDetail(c *gin.Context) {
 	})
 }
 
-// GetLastReport returns the most recent scan result
+// GetLastReport returns the most recent scan result.
+// Returns 200 with empty payload when no completed scan exists yet,
+// so the dashboard does not spam the log with 404s on first load.
 func (h *ReportHandler) GetLastReport(c *gin.Context) {
-	var scan db.Scan
-	if err := h.db.Where("status = ?", "done").Order("finished_at DESC").First(&scan).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "No completed scans found"})
+	var scans []db.Scan
+	h.db.Where("status = ?", "done").
+		Order("finished_at DESC").
+		Limit(1).
+		Find(&scans)
+
+	if len(scans) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"scan":            nil,
+			"ports":           []interface{}{},
+			"packages":        []interface{}{},
+			"vulnerabilities": []interface{}{},
+		})
 		return
 	}
+
+	scan := scans[0]
 
 	var ports []db.Port
 	h.db.Where("scan_id = ?", scan.ID).Find(&ports)
