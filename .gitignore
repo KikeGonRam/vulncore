@@ -1,0 +1,25 @@
+# Rust
+scanner/target/
+Cargo.lock
+
+# Go
+api/go.sum
+dist/
+*.exe
+
+# Data
+data/*.db
+data/nvd_cache/
+
+# OS
+.DS_Store
+*.swp
+*.swo
+
+# Env
+.env
+*.env.local
+
+# Release
+vulncore-release.zip
+release/

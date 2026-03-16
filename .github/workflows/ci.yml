@@ -1,0 +1,122 @@
+name: VulnCore CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Rust Scanner ────────────────────────────────────────────────────────────
+  rust-build-test:
+    name: Rust — Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            scanner/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('scanner/Cargo.toml') }}
+
+      - name: Check formatting
+        working-directory: scanner
+        run: cargo fmt --check
+
+      - name: Clippy lint
+        working-directory: scanner
+        run: cargo clippy -- -D warnings
+
+      - name: Run tests
+        working-directory: scanner
+        run: cargo test --verbose
+
+      - name: Build release
+        working-directory: scanner
+        run: cargo build --release
+
+      - name: Upload scanner binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulncore-scanner-linux-amd64
+          path: scanner/target/release/vulncore-scanner
+
+  # ── Go API ──────────────────────────────────────────────────────────────────
+  go-build-test:
+    name: Go — Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: api/go.sum
+
+      - name: Download modules
+        working-directory: api
+        run: go mod download
+
+      - name: Vet
+        working-directory: api
+        run: go vet ./...
+
+      - name: Test
+        working-directory: api
+        run: go test ./... -v -coverprofile=coverage.out
+
+      - name: Build
+        working-directory: api
+        run: go build -ldflags="-s -w" -o vulncore-api .
+
+      - name: Upload API binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulncore-api-linux-amd64
+          path: api/vulncore-api
+
+  # ── Release Package ──────────────────────────────────────────────────────────
+  package:
+    name: Package Release
+    runs-on: ubuntu-latest
+    needs: [rust-build-test, go-build-test]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download scanner
+        uses: actions/download-artifact@v4
+        with:
+          name: vulncore-scanner-linux-amd64
+          path: dist/
+
+      - name: Download API
+        uses: actions/download-artifact@v4
+        with:
+          name: vulncore-api-linux-amd64
+          path: dist/
+
+      - name: Create release zip
+        run: |
+          chmod +x dist/vulncore-scanner dist/vulncore-api
+          zip -r vulncore-linux-amd64.zip dist/ web/ configs/ README.md install.sh Makefile
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulncore-linux-amd64
+          path: vulncore-linux-amd64.zip

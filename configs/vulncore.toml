@@ -1,0 +1,45 @@
+# VulnCore Configuration
+# Copy to vulncore.toml and adjust as needed
+
+[server]
+port = 8080
+env  = "development"   # "production" disables gin debug output
+
+[scanner]
+# Path to the compiled Rust scanner binary
+binary_path = "./vulncore-scanner"
+
+[targets]
+# Default target for scheduled scans
+default = "127.0.0.1"
+
+[scan_defaults]
+port_range   = "1-1024"
+timeout_ms   = 500
+concurrency  = 256
+
+[scheduler]
+# Cron expressions (UTC)
+daily_full_scan  = "0 2 * * *"    # 02:00 daily
+hourly_port_scan = "0 * * * *"    # every hour
+
+[database]
+path = "./data/vulncore.db"
+
+[apis]
+# NVD API key (optional — increases rate limit from 5 to 50 req/s)
+# Get yours at: https://nvd.nist.gov/developers/request-an-api-key
+nvd_api_key = ""
+
+# OSV.dev — no key required
+osv_base_url = "https://api.osv.dev/v1/query"
+nvd_base_url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+[alerts]
+# Webhook URL for critical CVE alerts (e.g. Slack, Discord, Teams)
+webhook_url = ""
+min_severity = "HIGH"    # CRITICAL | HIGH | MEDIUM | LOW
+
+[logging]
+level  = "info"    # debug | info | warn | error
+format = "text"    # text | json

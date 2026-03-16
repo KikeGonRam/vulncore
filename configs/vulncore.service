@@ -1,0 +1,32 @@
+[Unit]
+Description=VulnCore - Linux Vulnerability Scanner
+Documentation=https://github.com/yourusername/vulncore
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vulncore
+Group=vulncore
+WorkingDirectory=/opt/vulncore
+ExecStart=/opt/vulncore/dist/vulncore-api
+Restart=on-failure
+RestartSec=5s
+
+# Environment
+Environment=VULNCORE_ENV=production
+Environment=VULNCORE_PORT=8080
+Environment=VULNCORE_SCANNER_PATH=/opt/vulncore/dist/vulncore-scanner
+Environment=VULNCORE_DEFAULT_TARGET=127.0.0.1
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/vulncore/data
+ProtectHome=true
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target
