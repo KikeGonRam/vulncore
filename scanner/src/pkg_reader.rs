@@ -5,6 +5,12 @@ use tracing::{info, warn};
 
 pub struct PackageReader;
 
+impl Default for PackageReader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PackageReader {
     pub fn new() -> Self {
         PackageReader
@@ -62,7 +68,11 @@ impl PackageReader {
 
     fn read_rpm(&self) -> Result<Vec<Package>> {
         let output = Command::new("rpm")
-            .args(["-qa", "--queryformat", "%{NAME}\\t%{VERSION}-%{RELEASE}\\t%{ARCH}\\n"])
+            .args([
+                "-qa",
+                "--queryformat",
+                "%{NAME}\\t%{VERSION}-%{RELEASE}\\t%{ARCH}\\n",
+            ])
             .output()?;
 
         if !output.status.success() {
@@ -88,9 +98,7 @@ impl PackageReader {
     }
 
     fn read_pacman(&self) -> Result<Vec<Package>> {
-        let output = Command::new("pacman")
-            .args(["-Q"])
-            .output()?;
+        let output = Command::new("pacman").args(["-Q"]).output()?;
 
         if !output.status.success() {
             return Err(anyhow::anyhow!("pacman query failed"));
@@ -115,9 +123,7 @@ impl PackageReader {
     }
 
     fn read_apk(&self) -> Result<Vec<Package>> {
-        let output = Command::new("apk")
-            .args(["info", "-v"])
-            .output()?;
+        let output = Command::new("apk").args(["info", "-v"]).output()?;
 
         if !output.status.success() {
             return Err(anyhow::anyhow!("apk query failed"));

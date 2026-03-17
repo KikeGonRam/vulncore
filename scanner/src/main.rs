@@ -1,14 +1,14 @@
+mod cve_matcher;
+mod models;
+mod pkg_reader;
 mod port_scanner;
 mod service_detector;
-mod cve_matcher;
-mod pkg_reader;
-mod models;
 
-use clap::{Parser, Subcommand};
-use tracing::{info, error};
-use std::process;
-use cli_table::{format::Justify, Cell, Style, Table};
 use crate::models::Severity;
+use clap::{Parser, Subcommand};
+use cli_table::{format::Justify, Cell, Style, Table};
+use std::process;
+use tracing::{error, info};
 
 #[derive(Parser)]
 #[command(name = "vulncore-scanner")]
@@ -59,7 +59,12 @@ async fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Ports { target, range, timeout_ms, concurrency } => {
+        Commands::Ports {
+            target,
+            range,
+            timeout_ms,
+            concurrency,
+        } => {
             info!("Starting port scan on {} range {}", target, range);
             let scanner = port_scanner::PortScanner::new(timeout_ms, concurrency);
             let results = scanner.scan(&target, &range).await;
@@ -104,7 +109,11 @@ async fn main() {
                 Err(e) => Err(e),
             }
         }
-        Commands::Full { target, range, output } => {
+        Commands::Full {
+            target,
+            range,
+            output,
+        } => {
             info!("Starting full scan on {}", target);
             let scanner = port_scanner::PortScanner::new(500, 512);
             let ports = scanner.scan(&target, &range).await.unwrap_or_default();
@@ -151,45 +160,58 @@ fn print_vuln_table(output: &models::ScanOutput) {
 
     println!("\n[!] VULNERABILITY REPORT");
     println!("--------------------------------------------------");
-    
-    let table = vulns.iter().map(|v| {
-        let sev_str = match v.severity {
-            Severity::Critical => "[!!] CRITICAL",
-            Severity::High => "[!] HIGH",
-            Severity::Medium => "[-] MEDIUM",
-            Severity::Low => "[+] LOW",
-            _ => "UNKNOWN",
-        };
 
-        let status = if v.is_exploited {
-            "[*] EXPL"
-        } else if let Some(score) = v.exploit_score {
-             if score > 0.1 { "(%) RISKY" } else { "" }
-        } else {
-            ""
-        };
+    let table = vulns
+        .iter()
+        .map(|v| {
+            let sev_str = match v.severity {
+                Severity::Critical => "[!!] CRITICAL",
+                Severity::High => "[!] HIGH",
+                Severity::Medium => "[-] MEDIUM",
+                Severity::Low => "[+] LOW",
+                _ => "UNKNOWN",
+            };
 
-        vec![
-            v.cve_id.clone().cell(),
-            v.package_name.clone().cell(),
-            v.installed_version.clone().cell(),
-            sev_str.cell(),
-            status.cell(),
-        ]
-    }).table().title(vec![
-        "CVE ID".cell().bold(true),
-        "Package".cell().bold(true),
-        "Version".cell().bold(true),
-        "Severity".cell().bold(true),
-        "Risk".cell().bold(true),
-    ]);
+            let status = if v.is_exploited {
+                "[*] EXPL"
+            } else if let Some(score) = v.exploit_score {
+                if score > 0.1 {
+                    "(%) RISKY"
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            };
+
+            vec![
+                v.cve_id.clone().cell(),
+                v.package_name.clone().cell(),
+                v.installed_version.clone().cell(),
+                sev_str.cell(),
+                status.cell(),
+            ]
+        })
+        .table()
+        .title(vec![
+            "CVE ID".cell().bold(true),
+            "Package".cell().bold(true),
+            "Version".cell().bold(true),
+            "Severity".cell().bold(true),
+            "Risk".cell().bold(true),
+        ]);
 
     println!("{}", table.display().unwrap());
-    
+
     println!("\n[SUMMARY]");
-    println!("Total Vulnerabilities: {}", output.summary.total_vulnerabilities);
-    println!("Critical: {}, High: {}, Medium: {}, Low: {}", 
-        output.summary.critical, output.summary.high, output.summary.medium, output.summary.low);
+    println!(
+        "Total Vulnerabilities: {}",
+        output.summary.total_vulnerabilities
+    );
+    println!(
+        "Critical: {}, High: {}, Medium: {}, Low: {}",
+        output.summary.critical, output.summary.high, output.summary.medium, output.summary.low
+    );
 }
 
 fn print_port_table(output: &models::ScanOutput) {
@@ -203,19 +225,24 @@ fn print_port_table(output: &models::ScanOutput) {
     }
 
     println!("\n[*] OPEN PORTS");
-    let table = ports.iter().filter(|p| p.state == models::PortState::Open).map(|p| {
-        vec![
-            p.port.cell().justify(Justify::Right),
-            p.protocol.clone().cell(),
-            p.service.clone().unwrap_or_default().cell(),
-            p.version.clone().unwrap_or_default().cell(),
-        ]
-    }).table().title(vec![
-        "Port".cell().bold(true),
-        "Protocol".cell().bold(true),
-        "Service".cell().bold(true),
-        "Version".cell().bold(true),
-    ]);
+    let table = ports
+        .iter()
+        .filter(|p| p.state == models::PortState::Open)
+        .map(|p| {
+            vec![
+                p.port.cell().justify(Justify::Right),
+                p.protocol.clone().cell(),
+                p.service.clone().unwrap_or_default().cell(),
+                p.version.clone().unwrap_or_default().cell(),
+            ]
+        })
+        .table()
+        .title(vec![
+            "Port".cell().bold(true),
+            "Protocol".cell().bold(true),
+            "Service".cell().bold(true),
+            "Version".cell().bold(true),
+        ]);
 
     println!("{}", table.display().unwrap());
 }

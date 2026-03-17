@@ -1,4 +1,6 @@
-use crate::models::{Package, PackageManager, PortResult, PortState, ScanOutput, Severity, Vulnerability};
+use crate::models::{
+    Package, PackageManager, PortResult, PortState, ScanOutput, Severity, Vulnerability,
+};
 
 #[test]
 fn test_port_scanner_creates() {

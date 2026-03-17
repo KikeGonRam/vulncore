@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PortResult {
@@ -169,21 +169,38 @@ impl ScanOutput {
     }
 }
 
-fn build_summary(total_ports: usize, open_ports: usize, total_packages: usize, vulns: &[Vulnerability]) -> ScanSummary {
+fn build_summary(
+    total_ports: usize,
+    open_ports: usize,
+    total_packages: usize,
+    vulns: &[Vulnerability],
+) -> ScanSummary {
     ScanSummary {
         total_ports_scanned: total_ports,
         open_ports,
         total_packages,
         total_vulnerabilities: vulns.len(),
-        critical: vulns.iter().filter(|v| v.severity == Severity::Critical).count(),
-        high: vulns.iter().filter(|v| v.severity == Severity::High).count(),
-        medium: vulns.iter().filter(|v| v.severity == Severity::Medium).count(),
+        critical: vulns
+            .iter()
+            .filter(|v| v.severity == Severity::Critical)
+            .count(),
+        high: vulns
+            .iter()
+            .filter(|v| v.severity == Severity::High)
+            .count(),
+        medium: vulns
+            .iter()
+            .filter(|v| v.severity == Severity::Medium)
+            .count(),
         low: vulns.iter().filter(|v| v.severity == Severity::Low).count(),
     }
 }
 
 fn uuid() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let t = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     format!("{:x}", t)
 }
