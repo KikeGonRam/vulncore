@@ -99,6 +99,48 @@ function setEl(id, val) {
   if (el) el.textContent = val ?? '0';
 }
 
+// ── Table filter ─────────────────────────────────
+function filterTable(query, tbodyId, countId) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const q = query.trim().toLowerCase();
+  let visible = 0;
+  tbody.querySelectorAll('tr').forEach(row => {
+    const text = row.textContent.toLowerCase();
+    const match = !q || text.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const countEl = document.getElementById(countId);
+  if (countEl) countEl.textContent = `${visible} rows`;
+}
+
+// ── Animate table rows ─────────────────────────────
+function animateRows(tbody, delay = 18) {
+  if (!tbody) return;
+  const rows = tbody.querySelectorAll('tr');
+  rows.forEach((row, i) => {
+    row.style.animationDelay = `${Math.min(i * delay, 350)}ms`;
+    row.classList.add('row-animated');
+  });
+  updateRowCount(tbody);
+}
+
+function updateRowCount(tbody) {
+  if (!tbody) return;
+  const countMap = {
+    'vuln-body': 'vuln-count',
+    'ports-body': 'ports-count',
+    'pkg-body': 'pkg-count',
+    'history-body': 'hist-count',
+  };
+  const countId = countMap[tbody.id];
+  if (countId) {
+    const countEl = document.getElementById(countId);
+    if (countEl) countEl.textContent = `${tbody.querySelectorAll('tr').length} rows`;
+  }
+}
+
 // ── Vulnerabilities ─────────────────────────────
 async function loadVulns() {
   const tbody = document.getElementById('vuln-body');
@@ -107,7 +149,7 @@ async function loadVulns() {
   try {
     const json = await fetch(`${API}/vulnerabilities?limit=300`).then(r => r.json());
     const data = json.data || [];
-    if (!data.length) { tbody.innerHTML = empty('NO_THREATS_DETECTED — EXECUTE_SCAN_TO_POPULATE'); return; }
+    if (!data.length) { tbody.innerHTML = empty('NO_THREATS_DETECTED — EXECUTE_SCAN_TO_POPULATE'); updateRowCount(tbody); return; }
     tbody.innerHTML = data.map(v => {
       const sev  = str(gf(v,'severity','Severity')).toUpperCase();
       const cve  = str(gf(v,'cve_id','CveID'));
@@ -125,6 +167,9 @@ async function loadVulns() {
         <td>${chip(sev)}</td>
       </tr>`;
     }).join('');
+    animateRows(tbody);
+    const fi = document.getElementById('vuln-filter');
+    if (fi && fi.value) filterTable(fi.value, 'vuln-body', 'vuln-count');
   } catch (e) { tbody.innerHTML = empty(`ERROR: ${e.message}`); }
 }
 
@@ -135,9 +180,9 @@ async function loadPorts() {
   tbody.innerHTML = empty('LOADING_PORT_DATA...');
   try {
     const json = await fetch(`${API}/reports/last`).then(r => r.json());
-    if (!json.scan) { tbody.innerHTML = empty('NO_COMPLETED_SCANS — RUN_SCAN_FIRST'); return; }
+    if (!json.scan) { tbody.innerHTML = empty('NO_COMPLETED_SCANS — RUN_SCAN_FIRST'); updateRowCount(tbody); return; }
     const ports = (json.ports || []).filter(p => str(gf(p,'state','State')).toLowerCase() === 'open');
-    if (!ports.length) { tbody.innerHTML = empty('NO_OPEN_PORTS_IN_LAST_SCAN'); return; }
+    if (!ports.length) { tbody.innerHTML = empty('NO_OPEN_PORTS_IN_LAST_SCAN'); updateRowCount(tbody); return; }
     tbody.innerHTML = ports.map(p => `<tr>
       <td style="color:var(--cyan);font-weight:700">${gf(p,'Port','port')}</td>
       <td style="color:var(--text-2)">${str(gf(p,'Protocol','protocol')||'tcp')}</td>
@@ -146,6 +191,9 @@ async function loadPorts() {
       <td style="color:var(--text-2)">${str(gf(p,'Version','version')||'---')}</td>
       <td style="color:var(--text-3);font-size:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${str(gf(p,'Banner','banner')||'---')}</td>
     </tr>`).join('');
+    animateRows(tbody);
+    const fi = document.getElementById('ports-filter');
+    if (fi && fi.value) filterTable(fi.value, 'ports-body', 'ports-count');
   } catch (e) { tbody.innerHTML = empty(`ERROR: ${e.message}`); }
 }
 
@@ -157,8 +205,8 @@ async function loadPackages() {
   try {
     const json = await fetch(`${API}/reports/last`).then(r => r.json());
     allPkgs = json.packages || [];
-    if (!json.scan) { tbody.innerHTML = empty('NO_COMPLETED_SCANS — RUN_SCAN_FIRST'); return; }
-    if (!allPkgs.length) { tbody.innerHTML = empty('NO_PACKAGES_FOUND'); return; }
+    if (!json.scan) { tbody.innerHTML = empty('NO_COMPLETED_SCANS — RUN_SCAN_FIRST'); updateRowCount(tbody); return; }
+    if (!allPkgs.length) { tbody.innerHTML = empty('NO_PACKAGES_FOUND'); updateRowCount(tbody); return; }
     renderPkgs(allPkgs);
   } catch (e) { tbody.innerHTML = empty(`ERROR: ${e.message}`); }
 }
@@ -172,6 +220,9 @@ function renderPkgs(list) {
     <td style="color:var(--text-2)">${str(gf(p,'Arch','arch')||'---')}</td>
     <td style="color:var(--text-3)">${str(gf(p,'Manager','manager'))}</td>
   </tr>`).join('');
+  animateRows(tbody);
+  const fi = document.getElementById('pkg-filter');
+  if (fi && fi.value) filterTable(fi.value, 'pkg-body', 'pkg-count');
 }
 
 // ── History ──────────────────────────────────────
@@ -182,7 +233,7 @@ async function loadHistory() {
   try {
     const json = await fetch(`${API}/history`).then(r => r.json());
     const data = json.data || [];
-    if (!data.length) { tbody.innerHTML = empty('NO_SCAN_HISTORY'); return; }
+    if (!data.length) { tbody.innerHTML = empty('NO_SCAN_HISTORY'); updateRowCount(tbody); return; }
     tbody.innerHTML = data.map(s => {
       const id        = str(gf(s,'ID','id')).substring(0, 8);
       const target    = str(gf(s,'target','Target')||'---');
@@ -207,6 +258,9 @@ async function loadHistory() {
         <td style="color:var(--text-2)">${portCnt}</td>
       </tr>`;
     }).join('');
+    animateRows(tbody);
+    const fi = document.getElementById('hist-filter');
+    if (fi && fi.value) filterTable(fi.value, 'history-body', 'hist-count');
   } catch (e) { tbody.innerHTML = empty(`ERROR: ${e.message}`); }
 }
 
@@ -329,13 +383,91 @@ async function startScan() {
   }
 }
 
+// ── Console state ──────────────────────────────
+let consoleFilter = 'all';
+const logTagGroups = {
+  info:  ['INFO','INIT','BOOT','POLL'],
+  ok:    ['OK'],
+  warn:  ['RSLT','WARN','TIMEOUT'],
+  error: ['FATAL','ERROR'],
+};
+
+function setConsoleFilter(filter, btn) {
+  consoleFilter = filter;
+  document.querySelectorAll('.console-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const out = document.getElementById('console-output');
+  if (!out) return;
+  out.querySelectorAll('.log-line').forEach(line => {
+    const tag = line.dataset.tag || '';
+    line.style.display = shouldShowLine(tag) ? '' : 'none';
+  });
+}
+
+function shouldShowLine(tag) {
+  if (consoleFilter === 'all') return true;
+  return (logTagGroups[consoleFilter] || []).includes(tag.toUpperCase());
+}
+
+function clearConsole() {
+  const out = document.getElementById('console-output');
+  if (out) out.innerHTML = '';
+}
+
 function log(msg, color='white') {
   const out = document.getElementById('console-output');
   if (!out) return;
+
   const line = document.createElement('div');
+  line.className = 'log-line';
+
+  // Parse log type prefix [TAG]
+  const tagMatch = msg.match(/^\[(\w+)\]/);
+  const tag  = tagMatch ? tagMatch[1].toUpperCase() : '';
+  const rest = tagMatch ? msg.substring(tagMatch[0].length).trimStart() : msg;
+  line.dataset.tag = tag;
+
+  const tagStyles = {
+    BOOT:    { bg:'rgba(0,229,255,0.12)',  color:'var(--cyan)',  border:'rgba(0,229,255,0.3)' },
+    INIT:    { bg:'rgba(0,229,255,0.08)',  color:'var(--cyan)',  border:'rgba(0,229,255,0.2)' },
+    INFO:    { bg:'rgba(41,121,255,0.12)', color:'var(--blue)',  border:'rgba(41,121,255,0.3)' },
+    OK:      { bg:'rgba(0,230,118,0.12)',  color:'var(--green)', border:'rgba(0,230,118,0.3)' },
+    FATAL:   { bg:'rgba(255,23,68,0.14)',  color:'var(--red)',   border:'rgba(255,23,68,0.3)' },
+    ERROR:   { bg:'rgba(255,23,68,0.14)',  color:'var(--red)',   border:'rgba(255,23,68,0.3)' },
+    WARN:    { bg:'rgba(255,145,0,0.12)',  color:'var(--amber)', border:'rgba(255,145,0,0.3)' },
+    POLL:    { bg:'rgba(255,255,255,0.04)',color:'var(--text-3)',border:'rgba(255,255,255,0.08)' },
+    RSLT:    { bg:'rgba(255,145,0,0.1)',   color:'var(--amber)', border:'rgba(255,145,0,0.25)' },
+    TIMEOUT: { bg:'rgba(255,23,68,0.14)',  color:'var(--red)',   border:'rgba(255,23,68,0.3)' },
+  };
+
   const colors = { cyan:'var(--cyan)', green:'var(--green)', red:'var(--red)', amber:'var(--amber)', dim:'var(--text-3)', white:'var(--text)' };
-  line.style.color = colors[color] || 'var(--text)';
-  line.textContent = `${new Date().toLocaleTimeString('en-US',{hour12:false})}  ${msg}`;
+  const msgColor = colors[color] || 'var(--text)';
+
+  // Timestamp
+  const ts = document.createElement('span');
+  ts.className = 'log-ts';
+  ts.textContent = new Date().toLocaleTimeString('en-US', {hour12:false});
+  line.appendChild(ts);
+
+  // Badge
+  const tc = tag && tagStyles[tag];
+  if (tc) {
+    const badge = document.createElement('span');
+    badge.className = 'log-badge';
+    badge.textContent = tag;
+    badge.style.cssText = `background:${tc.bg};color:${tc.color};border:1px solid ${tc.border};`;
+    line.appendChild(badge);
+  }
+
+  // Message text
+  const text = document.createElement('span');
+  text.className = 'log-msg';
+  text.style.color = msgColor;
+  text.textContent = rest;
+  line.appendChild(text);
+
+  if (!shouldShowLine(tag)) line.style.display = 'none';
+
   out.appendChild(line);
   out.scrollTop = out.scrollHeight;
 }

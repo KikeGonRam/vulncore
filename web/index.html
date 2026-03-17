@@ -46,7 +46,7 @@
         <div class="window-header">
           <div class="window-dots"><span></span><span></span><span></span></div>
           <div class="window-title">THREAT_OVERVIEW.SYS</div>
-          <div class="window-badge">● LIVE</div>
+          <div class="window-badge">LIVE</div>
         </div>
         <div class="window-content">
           <div class="stats-row">
@@ -105,6 +105,12 @@
           <div class="window-dots"><span></span><span></span><span></span></div>
           <div class="window-title">CVE_DATABASE.LOG</div>
         </div>
+        <div class="filter-bar">
+          <div class="filter-wrap">
+            <input id="vuln-filter" class="filter-input" placeholder="Filter by CVE, package, severity…" oninput="filterTable(this.value,'vuln-body','vuln-count')">
+          </div>
+          <span class="filter-count" id="vuln-count">— rows</span>
+        </div>
         <div class="window-content">
           <div class="table-wrapper">
             <table class="data-table">
@@ -122,6 +128,12 @@
         <div class="window-header">
           <div class="window-dots"><span></span><span></span><span></span></div>
           <div class="window-title">PORT_SCAN_RESULTS.DAT</div>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-wrap">
+            <input id="ports-filter" class="filter-input" placeholder="Filter by port, service, banner…" oninput="filterTable(this.value,'ports-body','ports-count')">
+          </div>
+          <span class="filter-count" id="ports-count">— rows</span>
         </div>
         <div class="window-content">
           <div class="table-wrapper">
@@ -141,6 +153,12 @@
           <div class="window-dots"><span></span><span></span><span></span></div>
           <div class="window-title">PACKAGE_INVENTORY.LST</div>
         </div>
+        <div class="filter-bar">
+          <div class="filter-wrap">
+            <input id="pkg-filter" class="filter-input" placeholder="Filter by package name, version, manager…" oninput="filterTable(this.value,'pkg-body','pkg-count')">
+          </div>
+          <span class="filter-count" id="pkg-count">— rows</span>
+        </div>
         <div class="window-content">
           <div class="table-wrapper">
             <table class="data-table">
@@ -158,6 +176,12 @@
         <div class="window-header">
           <div class="window-dots"><span></span><span></span><span></span></div>
           <div class="window-title">SCAN_AUDIT_LOG.DB</div>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-wrap">
+            <input id="hist-filter" class="filter-input" placeholder="Filter by target, status, type…" oninput="filterTable(this.value,'history-body','hist-count')">
+          </div>
+          <span class="filter-count" id="hist-count">— rows</span>
         </div>
         <div class="window-content">
           <div class="table-wrapper">
@@ -238,11 +262,20 @@
 
 <!-- SCAN CONSOLE -->
 <div id="scan-console" class="modal-overlay" style="display:none;z-index:1100;">
-  <div class="modal-box" style="max-width:600px;height:460px;display:flex;flex-direction:column;">
+  <div class="modal-box" style="max-width:700px;height:520px;display:flex;flex-direction:column;">
     <div class="modal-header">
       <span class="dot"></span>
       ENGINE_RUNTIME.LOG
       <span id="scan-status-tag" class="status-tag" style="margin-left:auto">RUNNING</span>
+      <div style="cursor:pointer;font-size:14px;color:var(--text-3);margin-left:12px;transition:color 0.15s" onmouseenter="this.style.color='var(--text)'" onmouseleave="this.style.color='var(--text-3)'" onclick="document.getElementById('scan-console').style.display='none'">✕</div>
+    </div>
+    <div class="console-toolbar">
+      <button class="console-filter-btn active" data-filter="all" onclick="setConsoleFilter('all',this)">ALL</button>
+      <button class="console-filter-btn" data-filter="info" onclick="setConsoleFilter('info',this)">INFO</button>
+      <button class="console-filter-btn" data-filter="ok" onclick="setConsoleFilter('ok',this)">OK</button>
+      <button class="console-filter-btn" data-filter="warn" onclick="setConsoleFilter('warn',this)">WARN</button>
+      <button class="console-filter-btn" data-filter="error" onclick="setConsoleFilter('error',this)">ERROR</button>
+      <button class="console-clear-btn" onclick="clearConsole()">CLEAR</button>
     </div>
     <div id="console-output" class="console-body"></div>
     <div class="console-footer">
