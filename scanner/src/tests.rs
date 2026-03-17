@@ -3,10 +3,10 @@
 use crate::models::{Package, PackageManager, PortResult, PortState, ScanOutput, Severity, Vulnerability};
 
 #[test]
-fn test_parse_range_dash() {
+fn test_port_scanner_creates() {
     use crate::port_scanner::PortScanner;
-    let _scanner = PortScanner::new(100, 8);
-    assert!(true);
+    let scanner = PortScanner::new(100, 8);
+    drop(scanner);
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn test_scan_output_json_roundtrip() {
         PortResult { port: 22, protocol: "tcp".into(), state: PortState::Open, service: Some("ssh".into()), banner: None, version: None },
     ];
     let output = ScanOutput::ports(ports);
-    let json = serde_json::to_string(&output).unwrap();
+    let json   = serde_json::to_string(&output).unwrap();
     let parsed: ScanOutput = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.scan_type, "ports");
     assert_eq!(parsed.summary.open_ports, 1);
@@ -82,4 +82,19 @@ fn test_vulnerability_severity_json() {
     assert!(json.contains("\"HIGH\""));
     assert!(json.contains("CVE-2024-1234"));
     assert!(json.contains("\"is_exploited\":true"));
+}
+
+#[test]
+fn test_port_state_serialization() {
+    let p = PortResult {
+        port: 443,
+        protocol: "tcp".into(),
+        state: PortState::Open,
+        service: Some("https".into()),
+        banner: None,
+        version: None,
+    };
+    let json = serde_json::to_string(&p).unwrap();
+    assert!(json.contains("\"open\""));
+    assert!(json.contains("443"));
 }
