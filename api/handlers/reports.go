@@ -22,6 +22,7 @@ func (h *ReportHandler) GetVulnerabilities(c *gin.Context) {
 	severity := c.Query("severity")
 	packageName := c.Query("package")
 	scanID := c.Query("scan_id")
+	isExploited := c.Query("exploited")
 	limitStr := c.DefaultQuery("limit", "100")
 	limit, _ := strconv.Atoi(limitStr)
 
@@ -35,6 +36,9 @@ func (h *ReportHandler) GetVulnerabilities(c *gin.Context) {
 	}
 	if scanID != "" {
 		query = query.Where("scan_id = ?", scanID)
+	}
+	if isExploited == "true" {
+		query = query.Where("is_exploited = ?", true)
 	}
 
 	var vulns []db.Vulnerability

@@ -19,6 +19,8 @@ func NewDashboardHandler(database *db.DB) *DashboardHandler {
 type DashboardStats struct {
 	TotalScans            int64              `json:"total_scans"`
 	TotalVulnerabilities  int64              `json:"total_vulnerabilities"`
+	TotalExploited        int64              `json:"total_exploited"`
+	HighRiskCount         int64              `json:"high_risk_count"`
 	TotalOpenPorts        int64              `json:"total_open_ports"`
 	SeverityBreakdown     map[string]int64   `json:"severity_breakdown"`
 	LastScanAt            *time.Time         `json:"last_scan_at"`
@@ -37,6 +39,8 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 
 	h.db.Model(&db.Scan{}).Where("status = ?", "done").Count(&stats.TotalScans)
 	h.db.Model(&db.Vulnerability{}).Count(&stats.TotalVulnerabilities)
+	h.db.Model(&db.Vulnerability{}).Where("is_exploited = ?", true).Count(&stats.TotalExploited)
+	h.db.Model(&db.Vulnerability{}).Where("exploit_score > ?", 0.1).Count(&stats.HighRiskCount)
 	h.db.Model(&db.Port{}).Where("state = ?", "open").Count(&stats.TotalOpenPorts)
 
 	// Severity breakdown

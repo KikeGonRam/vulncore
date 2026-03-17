@@ -41,6 +41,8 @@ type Vulnerability struct {
 	FixedVersion     string   `json:"fixed_version,omitempty"`
 	Severity         string   `json:"severity"`
 	CvssScore        float32  `json:"cvss_score,omitempty"`
+	IsExploited      bool     `json:"is_exploited"`
+	ExploitScore     float32  `json:"exploit_score,omitempty"`
 	Description      string   `json:"description"`
 	References       []string `json:"references"`
 	Published        string   `json:"published,omitempty"`

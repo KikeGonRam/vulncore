@@ -28,6 +28,8 @@ type Vulnerability struct {
 	FixedVersion     string  `json:"fixed_version,omitempty"`
 	Severity         string  `gorm:"index"     json:"severity"`
 	CvssScore        float32 `json:"cvss_score,omitempty"`
+	IsExploited      bool    `gorm:"index"     json:"is_exploited"`
+	ExploitScore     float32 `json:"exploit_score,omitempty"`
 	Description      string  `gorm:"type:text" json:"description"`
 	References       string  `gorm:"type:text" json:"references"`
 }

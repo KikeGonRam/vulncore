@@ -115,6 +115,8 @@ func (h *ScanHandler) executeScan(scanID, target, portRange string) {
 			FixedVersion:     v.FixedVersion,
 			Severity:         v.Severity,
 			CvssScore:        v.CvssScore,
+			IsExploited:      v.IsExploited,
+			ExploitScore:     v.ExploitScore,
 			Description:      v.Description,
 			References:       string(refs),
 		})

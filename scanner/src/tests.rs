@@ -82,6 +82,8 @@ mod tests {
             fixed_version: Some("8.4.0".into()),
             severity: Severity::High,
             cvss_score: Some(7.5),
+            is_exploited: true,
+            exploit_score: Some(0.95),
             description: "Test vulnerability".into(),
             references: vec!["https://example.com".into()],
             published: None,
@@ -89,5 +91,7 @@ mod tests {
         let json = serde_json::to_string(&v).unwrap();
         assert!(json.contains("\"HIGH\""));
         assert!(json.contains("CVE-2024-1234"));
+        assert!(json.contains("\"is_exploited\":true"));
+        assert!(json.contains("\"exploit_score\":0.95"));
     }
 }

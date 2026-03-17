@@ -2,8 +2,11 @@ use crate::models::{Package, Severity, Vulnerability};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
+use std::collections::HashSet;
 
 const OSV_API_BASE: &str = "https://api.osv.dev/v1/query";
+const CISA_KEV_URL: &str = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
+const EPSS_API_BASE: &str = "https://api.first.org/data/v1/epss";
 
 pub struct CveMatcher {
     client: reqwest::Client,
@@ -62,6 +65,30 @@ struct OsvEvent {
     fixed: Option<String>,
 }
 
+// CISA KEV Structures
+#[derive(Deserialize, Debug)]
+struct CisaKevResponse {
+    vulnerabilities: Vec<CisaKevVuln>,
+}
+
+#[derive(Deserialize, Debug)]
+struct CisaKevVuln {
+    #[serde(rename = "cveID")]
+    cve_id: String,
+}
+
+// EPSS Structures
+#[derive(Deserialize, Debug)]
+struct EpssResponse {
+    data: Vec<EpssData>,
+}
+
+#[derive(Deserialize, Debug)]
+struct EpssData {
+    cve: String,
+    epss: String,
+}
+
 impl CveMatcher {
     pub fn new() -> Self {
         CveMatcher {
@@ -75,20 +102,88 @@ impl CveMatcher {
 
     pub async fn match_packages(&self, packages: &[Package]) -> Result<Vec<Vulnerability>> {
         let mut vulnerabilities = Vec::new();
+        let exploited_cves = self.fetch_cisa_kev().await.unwrap_or_default();
 
         for pkg in packages {
             match self.query_osv(pkg).await {
-                Ok(mut vulns) => vulnerabilities.append(&mut vulns),
+                Ok(mut vulns) => {
+                    for v in &mut vulns {
+                        if exploited_cves.contains(&v.cve_id) {
+                            v.is_exploited = true;
+                        }
+                    }
+                    vulnerabilities.append(&mut vulns)
+                },
                 Err(e) => warn!("OSV query failed for {}: {}", pkg.name, e),
             }
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         }
 
         vulnerabilities.dedup_by(|a, b| a.cve_id == b.cve_id && a.package_name == b.package_name);
+
+        // Fetch EPSS scores for all discovered CVEs in one or more batches
+        if !vulnerabilities.is_empty() {
+            let cve_ids: Vec<String> = vulnerabilities.iter().map(|v| v.cve_id.clone()).collect();
+            if let Ok(epss_map) = self.fetch_epss_scores(&cve_ids).await {
+                for v in &mut vulnerabilities {
+                    if let Some(score) = epss_map.get(&v.cve_id) {
+                        v.exploit_score = Some(*score);
+                    }
+                }
+            }
+        }
+
         vulnerabilities.sort_by(|a, b| b.severity.cmp(&a.severity));
 
         info!("Found {} vulnerabilities", vulnerabilities.len());
         Ok(vulnerabilities)
+    }
+
+    async fn fetch_cisa_kev(&self) -> Result<HashSet<String>> {
+        info!("Fetching CISA KEV catalog...");
+        let response = self.client.get(CISA_KEV_URL).send().await?;
+        if !response.status().is_success() {
+            return Ok(HashSet::new());
+        }
+
+        let kev: CisaKevResponse = response.json().await?;
+        let mut exploited = HashSet::new();
+        for v in kev.vulnerabilities {
+            exploited.insert(v.cve_id);
+        }
+        info!("Loaded {} known exploited vulnerabilities", exploited.len());
+        Ok(exploited)
+    }
+
+    async fn fetch_epss_scores(&self, cve_ids: &[String]) -> Result<std::collections::HashMap<String, f32>> {
+        if cve_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        info!("Fetching EPSS scores for {} CVEs...", cve_ids.len());
+        let mut map = std::collections::HashMap::new();
+        
+        // EPSS API supports comma-separated CVEs
+        let chunks = cve_ids.chunks(50); // Process in batches of 50
+        for chunk in chunks {
+            let cve_list = chunk.join(",");
+            let url = format!("{}?cve={}", EPSS_API_BASE, cve_list);
+            
+            if let Ok(response) = self.client.get(url).send().await {
+                if response.status().is_success() {
+                    if let Ok(epss_res) = response.json::<EpssResponse>().await {
+                        for data in epss_res.data {
+                            if let Ok(score) = data.epss.parse::<f32>() {
+                                map.insert(data.cve, score);
+                            }
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+
+        Ok(map)
     }
 
     async fn query_osv(&self, pkg: &Package) -> Result<Vec<Vulnerability>> {
@@ -157,6 +252,8 @@ impl CveMatcher {
                 fixed_version,
                 severity,
                 cvss_score: score,
+                is_exploited: false, // Updated in match_packages
+                exploit_score: None,
                 description: vuln
                     .details
                     .or(vuln.summary)

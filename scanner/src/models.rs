@@ -45,6 +45,8 @@ pub struct Vulnerability {
     pub fixed_version: Option<String>,
     pub severity: Severity,
     pub cvss_score: Option<f32>,
+    pub is_exploited: bool,
+    pub exploit_score: Option<f32>,
     pub description: String,
     pub references: Vec<String>,
     pub published: Option<String>,
