@@ -1,9 +1,10 @@
 ---
-name: 🐛 Bug Report
+name: "\U0001F41B Bug Report"
 about: Something is broken or behaving unexpectedly
-title: "fix: "
-labels: ["bug", "needs-triage"]
-assignees: ""
+title: 'fix: '
+labels: bug
+assignees: ''
+
 ---
 
 ## 🐛 Bug Description

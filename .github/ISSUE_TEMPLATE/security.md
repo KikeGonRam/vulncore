@@ -1,9 +1,10 @@
 ---
-name: 🔒 Security Vulnerability
+name: "\U0001F512 Security Vulnerability"
 about: Report a security issue in VulnCore itself (please read before submitting)
-title: "security: "
-labels: ["security"]
-assignees: ""
+title: 'security: '
+labels: ''
+assignees: ''
+
 ---
 
 > ⚠️ **IMPORTANT**: If this is a critical vulnerability that could be exploited by an attacker,

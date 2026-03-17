@@ -1,9 +1,10 @@
 ---
-name: 💡 Feature Request
+name: "\U0001F4A1 Feature Request"
 about: Suggest a new feature or improvement
-title: "feat: "
-labels: ["enhancement"]
-assignees: ""
+title: 'feat: '
+labels: enhancement
+assignees: ''
+
 ---
 
 ## 💡 What problem does this solve?
