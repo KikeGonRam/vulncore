@@ -429,7 +429,7 @@ function pollStatus() {
 
         const summary = json.summary || {};
         if (summary.total_vulnerabilities > 0) {
-          log(`[RSLT] VULNS=${summary.total_vulnerabilities}  CRIT=${summary.critical}  HIGH=${summary.high}`, 'gold');
+          log(`[RSLT] VULNS=${summary.total_vulnerabilities}  CRIT=${summary.critical||0}  HIGH=${summary.high||0}`, 'gold');
         }
         if (summary.open_ports > 0) {
           log(`[RSLT] OPEN_PORTS=${summary.open_ports}`, 'cyan');
@@ -438,13 +438,20 @@ function pollStatus() {
         const tag = document.getElementById('scan-status-tag');
         if (tag) { tag.textContent = 'COMPLETED'; tag.style.color = 'var(--green)'; tag.style.borderColor = 'var(--green)'; }
 
+        // Esperar a que los writes del goroutine terminen antes de refrescar
         setTimeout(async () => {
           const c = document.getElementById('scan-console');
           if (c) c.style.display = 'none';
           const tag2 = document.getElementById('scan-status-tag');
           if (tag2) { tag2.textContent = 'ACTIVE'; tag2.style.color = 'var(--cyan)'; tag2.style.borderColor = 'var(--cyan)'; }
+
+          // Navegar a dashboard PRIMERO — las gráficas necesitan canvas visible
+          const dashEl = document.querySelector('[data-page="dashboard"]');
+          navigate('dashboard', dashEl);
+
+          // Dar un tick al DOM para que el canvas sea visible antes de renderizar
+          await new Promise(r => setTimeout(r, 100));
           await loadDashboard();
-          navigate('vulnerabilities', document.querySelector('[data-page="vulnerabilities"]'));
         }, 2000);
 
       } else if (json.status === 'error') {

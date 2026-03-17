@@ -1,6 +1,7 @@
-// lib.rs ya declara "#[cfg(test)] mod tests;"
-// por eso este archivo NO debe tener mod tests { } — es el módulo en sí
-use crate::models::{Package, PackageManager, PortResult, PortState, ScanOutput, Severity, Vulnerability};
+use crate::models::PackageManager;
+use crate::models::PortState;
+use crate::models::Severity;
+use crate::models::{Package, PortResult, ScanOutput, Vulnerability};
 
 #[test]
 fn test_port_scanner_creates() {
@@ -20,17 +21,45 @@ fn test_severity_from_cvss() {
 #[test]
 fn test_severity_ordering() {
     assert!(Severity::Critical > Severity::High);
-    assert!(Severity::High    > Severity::Medium);
-    assert!(Severity::Medium  > Severity::Low);
+    assert!(Severity::High > Severity::Medium);
+    assert!(Severity::Medium > Severity::Low);
 }
 
 #[test]
 fn test_scan_output_summary_ports() {
     let ports = vec![
-        PortResult { port: 22,  protocol: "tcp".into(), state: PortState::Open,     service: Some("ssh".into()),   banner: None, version: None },
-        PortResult { port: 80,  protocol: "tcp".into(), state: PortState::Open,     service: Some("http".into()),  banner: None, version: None },
-        PortResult { port: 81,  protocol: "tcp".into(), state: PortState::Closed,   service: None,                  banner: None, version: None },
-        PortResult { port: 443, protocol: "tcp".into(), state: PortState::Filtered, service: Some("https".into()), banner: None, version: None },
+        PortResult {
+            port: 22,
+            protocol: "tcp".into(),
+            state: PortState::Open,
+            service: Some("ssh".into()),
+            banner: None,
+            version: None,
+        },
+        PortResult {
+            port: 80,
+            protocol: "tcp".into(),
+            state: PortState::Open,
+            service: Some("http".into()),
+            banner: None,
+            version: None,
+        },
+        PortResult {
+            port: 81,
+            protocol: "tcp".into(),
+            state: PortState::Closed,
+            service: None,
+            banner: None,
+            version: None,
+        },
+        PortResult {
+            port: 443,
+            protocol: "tcp".into(),
+            state: PortState::Filtered,
+            service: Some("https".into()),
+            banner: None,
+            version: None,
+        },
     ];
     let output = ScanOutput::ports(ports);
     assert_eq!(output.summary.total_ports_scanned, 4);
@@ -40,11 +69,16 @@ fn test_scan_output_summary_ports() {
 
 #[test]
 fn test_scan_output_json_roundtrip() {
-    let ports = vec![
-        PortResult { port: 22, protocol: "tcp".into(), state: PortState::Open, service: Some("ssh".into()), banner: None, version: None },
-    ];
+    let ports = vec![PortResult {
+        port: 22,
+        protocol: "tcp".into(),
+        state: PortState::Open,
+        service: Some("ssh".into()),
+        banner: None,
+        version: None,
+    }];
     let output = ScanOutput::ports(ports);
-    let json   = serde_json::to_string(&output).unwrap();
+    let json = serde_json::to_string(&output).unwrap();
     let parsed: ScanOutput = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.scan_type, "ports");
     assert_eq!(parsed.summary.open_ports, 1);
