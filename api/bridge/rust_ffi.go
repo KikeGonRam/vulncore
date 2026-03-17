@@ -92,12 +92,13 @@ func RunPorts(target, portRange string, timeoutMs, concurrency int) (*ScanOutput
 		"--range", portRange,
 		"--timeout-ms", fmt.Sprintf("%d", timeoutMs),
 		"--concurrency", fmt.Sprintf("%d", concurrency),
+		"--format", "json",
 	}
 	return runScanner(args, 2*time.Minute)
 }
 
 func RunPackages() (*ScanOutput, error) {
-	return runScanner([]string{"packages"}, ScannerTimeout)
+	return runScanner([]string{"packages", "--format", "json"}, ScannerTimeout)
 }
 
 func RunFull(target, portRange string) (*ScanOutput, error) {
@@ -105,6 +106,7 @@ func RunFull(target, portRange string) (*ScanOutput, error) {
 		"full",
 		"--target", target,
 		"--range", portRange,
+		"--format", "json",
 	}
 	return runScanner(args, ScannerTimeout)
 }
