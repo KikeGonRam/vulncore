@@ -3,60 +3,89 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VULNCORE // SECURITY_OS</title>
+  <title>VULNCORE // THREAT_INTEL</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/dashboard/assets/css/hacker.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
 
 <aside class="sidebar">
-  <div class="sidebar-logo">VULNCORE</div>
+  <div class="sidebar-logo"><span>VULNCORE</span></div>
   <nav class="nav">
-    <div class="nav-section">MAIN</div>
-    <div class="nav-item active" data-page="dashboard" title="Dashboard">◈ DASHBOARD</div>
-    <div class="nav-section">SEC</div>
-    <div class="nav-item" data-page="vulnerabilities" title="Threats">⚠ THREATS <span id="nav-vuln-count" class="count-tag">0</span></div>
-    <div class="nav-item" data-page="ports" title="Ports">◎ PORTS <span id="nav-port-count" class="count-tag">0</span></div>
-    <div class="nav-section">AST</div>
-    <div class="nav-item" data-page="packages" title="Inventory">❏ INVENTORY</div>
-    <div class="nav-item" data-page="history" title="History">◫ HISTORY</div>
+    <div class="nav-section">OVERVIEW</div>
+    <div class="nav-item active" data-page="dashboard">◈ <span>Dashboard</span></div>
+    <div class="nav-section">SECURITY</div>
+    <div class="nav-item" data-page="vulnerabilities">⚠ <span>Threats</span> <span id="nav-vuln-count" class="count-tag">0</span></div>
+    <div class="nav-item" data-page="ports">◎ <span>Ports</span> <span id="nav-port-count" class="count-tag">0</span></div>
+    <div class="nav-section">ASSETS</div>
+    <div class="nav-item" data-page="packages">❏ <span>Inventory</span></div>
+    <div class="nav-item" data-page="history">◫ <span>History</span></div>
   </nav>
 </aside>
 
 <div class="main">
   <header class="topbar">
     <div class="breadcrumb">
-      SYSTEM / <span id="current-view" class="view-name">DASHBOARD</span>
+      root@vulncore / <span id="current-view" class="view-name">dashboard</span>
     </div>
-    <button class="btn btn-primary" onclick="openModal()">+ RUN_SCAN</button>
+    <div class="sys-tag" id="sys-time"></div>
+    <button class="btn btn-primary" onclick="openModal()">+ NEW_SCAN</button>
   </header>
 
   <div class="content">
-    <!-- DASHBOARD VIEW -->
+
+    <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
       <div class="window-frame">
         <div class="window-header">
-          <div class="window-controls"><span></span><span></span><span></span></div>
-          <div class="window-title">OVERVIEW.EXE</div>
+          <div class="window-dots"><span></span><span></span><span></span></div>
+          <div class="window-title">THREAT_OVERVIEW.SYS</div>
+          <div class="window-badge">● LIVE</div>
         </div>
         <div class="window-content">
           <div class="stats-row">
-            <div class="stat-card border-red"><div class="label">KEV</div><div class="value color-red" id="stat-exploited">0</div></div>
-            <div class="stat-card border-gold"><div class="label">EPSS</div><div class="value color-gold" id="stat-risky">0</div></div>
-            <div class="stat-card border-red"><div class="label">CRIT</div><div class="value color-red" id="stat-critical">0</div></div>
-            <div class="stat-card border-cyan"><div class="label">PORT</div><div class="value color-cyan" id="stat-ports">0</div></div>
+            <div class="stat-card s-red">
+              <div class="label">KEV_EXPLOITED</div>
+              <div class="value" id="stat-exploited">0</div>
+              <div class="sublabel">CISA Known Exploited</div>
+            </div>
+            <div class="stat-card s-amber">
+              <div class="label">EPSS_HIGH_RISK</div>
+              <div class="value" id="stat-risky">0</div>
+              <div class="sublabel">Exploit Probability</div>
+            </div>
+            <div class="stat-card s-red">
+              <div class="label">CRITICAL_CVEs</div>
+              <div class="value" id="stat-critical">0</div>
+              <div class="sublabel">CVSS ≥ 9.0</div>
+            </div>
+            <div class="stat-card s-cyan">
+              <div class="label">OPEN_PORTS</div>
+              <div class="value" id="stat-ports">0</div>
+              <div class="sublabel">Exposed Services</div>
+            </div>
           </div>
-          <div class="grid-layout">
-            <div class="card"><div class="card-header">TIMELINE</div><div class="chart-container"><canvas id="timeline-chart"></canvas></div></div>
-            <div class="card"><div class="card-header">RATIO</div><div class="chart-container"><canvas id="donut-chart"></canvas></div></div>
+
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header">30D_VULNERABILITY_TIMELINE</div>
+              <div class="chart-container"><canvas id="timeline-chart"></canvas></div>
+            </div>
+            <div class="card">
+              <div class="card-header">SEVERITY_DISTRIBUTION</div>
+              <div class="chart-container" style="display:flex;align-items:center;justify-content:center;">
+                <canvas id="donut-chart" style="max-height:160px;max-width:160px;"></canvas>
+              </div>
+            </div>
           </div>
-          <div class="card" style="margin-top:15px;">
-            <div class="card-header">HIGH_RISK_OBJECTS</div>
+
+          <div class="card">
+            <div class="card-header">TOP_RISK_PACKAGES</div>
             <div class="table-wrapper">
               <table class="data-table">
-                <thead><tr><th>NAME</th><th>HITS</th><th>SEV</th></tr></thead>
+                <thead><tr><th>PACKAGE_NAME</th><th>CVE_COUNT</th><th>MAX_SEVERITY</th></tr></thead>
                 <tbody id="top-pkg-body"></tbody>
               </table>
             </div>
@@ -65,17 +94,17 @@
       </div>
     </div>
 
-    <!-- VULNERABILITIES VIEW -->
+    <!-- VULNERABILITIES -->
     <div class="page" id="page-vulnerabilities">
       <div class="window-frame">
         <div class="window-header">
-          <div class="window-controls"><span></span><span></span><span></span></div>
-          <div class="window-title">THREAT_DB.LOG</div>
+          <div class="window-dots"><span></span><span></span><span></span></div>
+          <div class="window-title">CVE_DATABASE.LOG</div>
         </div>
         <div class="window-content">
           <div class="table-wrapper">
             <table class="data-table">
-              <thead><tr><th>CVE_ID</th><th>PACKAGE</th><th>VERSION</th><th>FIX</th><th>CVSS</th><th>SEV</th></tr></thead>
+              <thead><tr><th>CVE_ID</th><th>PACKAGE</th><th>INSTALLED</th><th>FIXED_VERSION</th><th>CVSS</th><th>SEVERITY</th></tr></thead>
               <tbody id="vuln-body"></tbody>
             </table>
           </div>
@@ -83,17 +112,17 @@
       </div>
     </div>
 
-    <!-- PORTS VIEW -->
+    <!-- PORTS -->
     <div class="page" id="page-ports">
       <div class="window-frame">
         <div class="window-header">
-          <div class="window-controls"><span></span><span></span><span></span></div>
-          <div class="window-title">PORT_SCAN.DAT</div>
+          <div class="window-dots"><span></span><span></span><span></span></div>
+          <div class="window-title">PORT_SCAN_RESULTS.DAT</div>
         </div>
         <div class="window-content">
           <div class="table-wrapper">
             <table class="data-table">
-              <thead><tr><th>PORT</th><th>PROTO</th><th>STATE</th><th>SERVICE</th><th>VERSION</th><th>BANNER</th></tr></thead>
+              <thead><tr><th>PORT</th><th>PROTOCOL</th><th>STATE</th><th>SERVICE</th><th>VERSION</th><th>BANNER</th></tr></thead>
               <tbody id="ports-body"></tbody>
             </table>
           </div>
@@ -101,17 +130,17 @@
       </div>
     </div>
 
-    <!-- PACKAGES VIEW -->
+    <!-- PACKAGES -->
     <div class="page" id="page-packages">
       <div class="window-frame">
         <div class="window-header">
-          <div class="window-controls"><span></span><span></span><span></span></div>
-          <div class="window-title">INVENTORY.LST</div>
+          <div class="window-dots"><span></span><span></span><span></span></div>
+          <div class="window-title">PACKAGE_INVENTORY.LST</div>
         </div>
         <div class="window-content">
           <div class="table-wrapper">
             <table class="data-table">
-              <thead><tr><th>NAME</th><th>VERSION</th><th>ARCH</th><th>MGR</th></tr></thead>
+              <thead><tr><th>PACKAGE_NAME</th><th>VERSION</th><th>ARCH</th><th>MANAGER</th></tr></thead>
               <tbody id="pkg-body"></tbody>
             </table>
           </div>
@@ -119,70 +148,106 @@
       </div>
     </div>
 
-    <!-- HISTORY VIEW -->
+    <!-- HISTORY -->
     <div class="page" id="page-history">
       <div class="window-frame">
         <div class="window-header">
-          <div class="window-controls"><span></span><span></span><span></span></div>
-          <div class="window-title">AUDIT.LOG</div>
+          <div class="window-dots"><span></span><span></span><span></span></div>
+          <div class="window-title">SCAN_AUDIT_LOG.DB</div>
         </div>
         <div class="window-content">
           <div class="table-wrapper">
             <table class="data-table">
-              <thead><tr><th>ID</th><th>TARGET</th><th>TYPE</th><th>STATUS</th><th>TIME</th><th>DUR</th><th>V</th><th>P</th></tr></thead>
+              <thead><tr><th>SESSION_ID</th><th>TARGET</th><th>TYPE</th><th>STATUS</th><th>STARTED</th><th>DURATION</th><th>VULNS</th><th>PORTS</th></tr></thead>
               <tbody id="history-body"></tbody>
             </table>
           </div>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
-<!-- MODAL CONFIGURACIÓN ESCANEO -->
+<!-- SCAN MODAL -->
 <div id="modal" class="modal-overlay">
-  <div class="window-frame" style="max-width:400px; width:100%;">
-    <div class="window-header">
-      <div class="window-controls"><span></span><span></span><span></span></div>
-      <div class="window-title">INITIATE_SCAN_PROCESS</div>
-      <div style="margin-left:auto; cursor:pointer;" onclick="closeModal()">✕</div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="dot"></span>
+      CONFIGURE_SCAN_PARAMETERS
+      <div style="margin-left:auto;cursor:pointer;font-size:14px;color:var(--text-3)" onclick="closeModal()">✕</div>
     </div>
-    <div class="window-content">
-      <div class="form-group">
-        <label>TARGET_HOST (IPV4/FQDN)</label>
-        <input id="scan-target" class="input-field" value="127.0.0.1" placeholder="e.g. 192.168.1.1">
+    <div class="modal-body">
+      <div class="form-label" style="margin-bottom:10px;">SCAN_MODE</div>
+      <div class="scan-type-grid">
+
+        <div class="scan-type-card active" data-type="full" onclick="selectScanType('full',this)">
+          <span class="scan-icon">🛡</span>
+          <span class="scan-label">FULL</span>
+          <span class="scan-desc">Ports + CVEs</span>
+          <div class="scan-speed">
+            <span class="speed-dot"></span><span class="speed-dot"></span><span class="speed-dot"></span>
+            <span class="speed-dot"></span><span class="speed-dot"></span>
+          </div>
+        </div>
+
+        <div class="scan-type-card" data-type="ports" onclick="selectScanType('ports',this)">
+          <span class="scan-icon">◎</span>
+          <span class="scan-label">PORTS</span>
+          <span class="scan-desc">TCP only</span>
+          <div class="scan-speed">
+            <span class="speed-dot"></span><span class="speed-dot"></span><span class="speed-dot"></span>
+            <span class="speed-dot"></span><span class="speed-dot"></span>
+          </div>
+        </div>
+
+        <div class="scan-type-card" data-type="packages" onclick="selectScanType('packages',this)">
+          <span class="scan-icon">❏</span>
+          <span class="scan-label">PACKAGES</span>
+          <span class="scan-desc">CVE match</span>
+          <div class="scan-speed">
+            <span class="speed-dot"></span><span class="speed-dot"></span><span class="speed-dot"></span>
+            <span class="speed-dot"></span><span class="speed-dot"></span>
+          </div>
+        </div>
+
       </div>
-      <div class="form-group">
-        <label>PORT_RANGE_DEFINITION</label>
-        <input id="scan-range" class="input-field" value="1-9999" placeholder="e.g. 1-65535">      </div>
-      <div style="display:flex; gap:10px; margin-top:20px;">
-        <button class="btn btn-primary" style="flex:1" onclick="startScan()">CONFIRM_EXECUTION</button>
-        <button class="btn btn-secondary" style="flex:1" onclick="closeModal()">ABORT</button>
+
+      <div class="form-row" id="target-row">
+        <div class="form-group">
+          <div class="form-label">TARGET_HOST</div>
+          <input id="scan-target" class="input-field" value="127.0.0.1" placeholder="192.168.1.0/24">
+        </div>
+        <div class="form-group" id="range-group">
+          <div class="form-label">PORT_RANGE</div>
+          <input id="scan-range" class="input-field" value="1-9999" placeholder="1-65535">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary" style="flex:1" onclick="startScan()">▶ EXECUTE_SCAN</button>
+        <button class="btn btn-secondary" onclick="closeModal()">CANCEL</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- CONSOLA DE EJECUCIÓN (REAL-TIME) -->
-<div id="scan-console" class="modal-overlay" style="display:none; z-index: 1100;">
-  <div class="window-frame" style="max-width:600px; width:100%; height:450px;">
-    <div class="window-header">
-      <div class="window-controls"><span></span><span></span><span></span></div>
-      <div class="window-title">VULNCORE_ENGINE_RUNTIME.LOG</div>
-      <div id="scan-status-tag" style="margin-left:auto; font-family:var(--font-mono); font-size:9px; color:var(--cyan); border:1px solid var(--cyan); padding:0 5px;">ACTIVE</div>
+<!-- SCAN CONSOLE -->
+<div id="scan-console" class="modal-overlay" style="display:none;z-index:1100;">
+  <div class="modal-box" style="max-width:600px;height:460px;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <span class="dot"></span>
+      ENGINE_RUNTIME.LOG
+      <span id="scan-status-tag" class="status-tag" style="margin-left:auto">RUNNING</span>
     </div>
-    <div class="window-content" style="background:#000; display:flex; flex-direction:column; padding:0;">
-      <div id="console-output" style="flex:1; padding:20px; font-family:var(--font-mono); font-size:11px; color:var(--green); overflow-y:auto; line-height:1.6; border-bottom:1px solid var(--border);">
-        <!-- Logs dinámicos -->
+    <div id="console-output" class="console-body"></div>
+    <div class="console-footer">
+      <div class="progress-track">
+        <div id="scan-progress-bar" class="progress-fill" style="width:0%"></div>
       </div>
-      <div style="padding:20px; background:rgba(255,255,255,0.02);">
-        <div style="height:4px; width:100%; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden; margin-bottom:10px;">
-          <div id="scan-progress-bar" style="height:100%; width:0%; background:var(--cyan); box-shadow:0 0 15px var(--cyan); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px;">
-          <span id="console-step" style="color:var(--text-dim)">WAITING_FOR_ENGINE...</span>
-          <span id="console-percent" style="color:var(--cyan); font-weight:bold;">0%</span>
-        </div>
+      <div class="progress-meta">
+        <span id="console-step">INITIALIZING...</span>
+        <span id="console-percent">0%</span>
       </div>
     </div>
   </div>
