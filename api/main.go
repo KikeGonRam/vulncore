@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -9,20 +10,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vulncore/api/db"
 	"github.com/vulncore/api/handlers"
+	"github.com/vulncore/api/middleware"
 	"github.com/vulncore/api/scheduler"
 )
 
-// dbPath returns a SQLite path guaranteed to be on a Linux filesystem.
-// Running on WSL2 with the repo under /mnt/c/ causes SQLite I/O errors
-// because NTFS does not support the POSIX file-locking SQLite requires.
 func dbPath() string {
-	// Explicit override always wins
 	if p := os.Getenv("VULNCORE_DB_PATH"); p != "" {
 		return p
 	}
-
-	// If the process is running from a Windows-mounted path, redirect to
-	// the Linux home directory so SQLite gets a proper ext4 volume.
 	cwd, _ := os.Getwd()
 	if len(cwd) >= 6 && cwd[:6] == "/mnt/c" {
 		home, err := os.UserHomeDir()
@@ -31,11 +26,9 @@ func dbPath() string {
 		}
 		dir := filepath.Join(home, ".vulncore")
 		os.MkdirAll(dir, 0755)
-		log.Printf("WSL2 detected: storing DB on Linux FS at %s", dir)
+		log.Printf("WSL2 detected: DB at %s", dir)
 		return filepath.Join(dir, "vulncore.db")
 	}
-
-	// Native Linux path — use local data/ directory
 	os.MkdirAll("./data", 0755)
 	return "./data/vulncore.db"
 }
@@ -51,7 +44,6 @@ func main() {
 	}
 
 	r := gin.Default()
-
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -59,7 +51,7 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Resolve web directory relative to executable so it works from any cwd
+	// Web files
 	exe, _ := os.Executable()
 	exeDir := filepath.Dir(exe)
 	webDir := filepath.Join(exeDir, "..", "web")
@@ -71,27 +63,49 @@ func main() {
 	}
 
 	r.Static("/dashboard", webDir)
-	r.StaticFile("/", filepath.Join(webDir, "index.html"))
+	r.StaticFile("/login", filepath.Join(webDir, "login.html"))
+
+	// Redirect root → login if no token, else dashboard
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/dashboard/")
+	})
+
+	// ── Handlers ────────────────────────────────────
+	authHandler   := handlers.NewAuthHandler()
+	scanHandler   := handlers.NewScanHandler(database)
+	reportHandler := handlers.NewReportHandler(database)
+	dashHandler   := handlers.NewDashboardHandler(database)
+	exportHandler := handlers.NewExportHandler(database)
+
+	// ── Public routes ────────────────────────────────
+	r.GET("/api/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "0.1.0"})
+	})
 
 	api := r.Group("/api")
+	api.POST("/auth/login", authHandler.Login)
+
+	// ── Protected routes ─────────────────────────────
+	protected := r.Group("/api")
+	protected.Use(middleware.RequireAuth())
 	{
-		scanHandler    := handlers.NewScanHandler(database)
-		reportHandler  := handlers.NewReportHandler(database)
-		dashHandler    := handlers.NewDashboardHandler(database)
+		protected.GET("/auth/me", authHandler.Me)
 
-		api.POST("/scan/full",         scanHandler.RunFullScan)
-		api.GET("/scan/ports",         scanHandler.ScanPorts)
-		api.GET("/scan/packages",      scanHandler.ScanPackages)
-		api.GET("/scan/:id/status",    scanHandler.GetScanStatus)
+		protected.POST("/scan/full",          scanHandler.RunFullScan)
+		protected.GET("/scan/ports",          scanHandler.ScanPorts)
+		protected.GET("/scan/packages",       scanHandler.ScanPackages)
+		protected.GET("/scan/:id/status",     scanHandler.GetScanStatus)
 
-		api.GET("/vulnerabilities",    reportHandler.GetVulnerabilities)
-		api.GET("/vulnerabilities/:id", reportHandler.GetVulnerabilityDetail)
-		api.GET("/reports/last",       reportHandler.GetLastReport)
-		api.GET("/reports",            reportHandler.GetAllReports)
+		protected.GET("/vulnerabilities",     reportHandler.GetVulnerabilities)
+		protected.GET("/vulnerabilities/:id", reportHandler.GetVulnerabilityDetail)
+		protected.GET("/reports/last",        reportHandler.GetLastReport)
+		protected.GET("/reports",             reportHandler.GetAllReports)
 
-		api.GET("/dashboard/stats",    dashHandler.GetStats)
-		api.GET("/dashboard/timeline", dashHandler.GetTimeline)
-		api.GET("/history",            dashHandler.GetHistory)
+		protected.GET("/reports/last/export", exportHandler.ExportLastReport)
+
+		protected.GET("/dashboard/stats",     dashHandler.GetStats)
+		protected.GET("/dashboard/timeline",  dashHandler.GetTimeline)
+		protected.GET("/history",             dashHandler.GetHistory)
 	}
 
 	sched := scheduler.New(database)
@@ -103,8 +117,7 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("VulnCore API running on http://0.0.0.0:%s", port)
-	log.Printf("Dashboard: http://localhost:%s", port)
+	log.Printf("VulnCore running on http://0.0.0.0:%s", port)
 
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Server error: %v", err)

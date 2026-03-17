@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vulncore/api/bridge"
 	"github.com/vulncore/api/db"
+	"github.com/vulncore/api/webhooks"
 )
 
 type ScanHandler struct {
@@ -113,6 +114,30 @@ func (h *ScanHandler) executeScan(scanID, target, portRange, scanType string) {
 			ExploitScore: v.ExploitScore, Description: v.Description, References: string(refs),
 		})
 	}
+
+	crit, high, med, low := 0, 0, 0, 0
+	for _, v := range result.Vulnerabilities {
+		switch v.Severity {
+		case "CRITICAL":
+			crit++
+		case "HIGH":
+			high++
+		case "MEDIUM":
+			med++
+		case "LOW":
+			low++
+		}
+	}
+	go webhooks.Send(webhooks.VulnSummary{
+		ScanID:   scanID,
+		Target:   target,
+		ScanType: scanType,
+		Critical: crit,
+		High:     high,
+		Medium:   med,
+		Low:      low,
+		Total:    len(result.Vulnerabilities),
+	})
 }
 
 func (h *ScanHandler) ScanPorts(c *gin.Context) {

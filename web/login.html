@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VULNCORE // AUTH</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06080b; --bg-1: #0d1117; --border: rgba(255,255,255,0.08);
+      --border-2: rgba(255,255,255,0.14); --cyan: #00e5ff; --red: #ff1744;
+      --text: #d0d6df; --text-2: #7a8594; --text-3: #3d4550;
+      --mono: 'JetBrains Mono', monospace; --sans: 'Space Grotesk', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--sans);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+      pointer-events: none;
+    }
+    .box {
+      width: 100%; max-width: 380px; padding: 20px;
+      background: rgba(13,17,23,0.97); border: 1px solid var(--border-2);
+      border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,229,255,0.04);
+    }
+    .logo {
+      font-family: var(--mono); font-size: 13px; font-weight: 700;
+      color: var(--cyan); display: flex; align-items: center; gap: 8px;
+      margin-bottom: 28px; letter-spacing: 0.06em;
+    }
+    .logo::before { content: '▣'; font-size: 16px; }
+    .label { font-family: var(--mono); font-size: 9px; color: var(--text-3); letter-spacing: 0.15em; margin-bottom: 7px; }
+    .field {
+      width: 100%; background: #06080b; border: 1px solid var(--border);
+      border-radius: 7px; color: var(--cyan); padding: 11px 13px;
+      font-family: var(--mono); font-size: 12px; outline: none;
+      margin-bottom: 14px; transition: border-color 0.15s;
+    }
+    .field:focus { border-color: rgba(0,229,255,0.4); box-shadow: 0 0 0 3px rgba(0,229,255,0.06); }
+    .btn {
+      width: 100%; background: var(--cyan); color: #000; border: none;
+      border-radius: 7px; padding: 12px; font-family: var(--mono);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+      cursor: pointer; transition: all 0.15s; margin-top: 6px;
+    }
+    .btn:hover { background: #33ebff; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .error {
+      display: none; background: rgba(255,23,68,0.08); border: 1px solid rgba(255,23,68,0.3);
+      border-radius: 7px; padding: 10px 12px; margin-bottom: 14px;
+      font-family: var(--mono); font-size: 11px; color: var(--red);
+    }
+    .footer { margin-top: 20px; font-family: var(--mono); font-size: 9px; color: var(--text-3); text-align: center; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">VULNCORE</div>
+
+  <div class="label">USERNAME</div>
+  <input id="username" class="field" type="text" value="admin" autocomplete="username">
+
+  <div class="label">PASSWORD</div>
+  <input id="password" class="field" type="password" placeholder="••••••••••" autocomplete="current-password">
+
+  <div id="error" class="error"></div>
+
+  <button class="btn" id="login-btn" onclick="doLogin()">AUTHENTICATE</button>
+
+  <div class="footer">VulnCore v0.1.0 — Threat Intelligence Platform</div>
+</div>
+
+<script>
+  // Si ya hay token válido, redirigir al dashboard
+  const saved = localStorage.getItem('vc_token');
+  if (saved) {
+    fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + saved } })
+      .then(r => { if (r.ok) window.location.href = '/'; })
+      .catch(() => {});
+  }
+
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const btn = document.getElementById('login-btn');
+    const errEl = document.getElementById('error');
+    const user = document.getElementById('username').value.trim();
+    const pass = document.getElementById('password').value;
+
+    btn.disabled = true;
+    btn.textContent = 'AUTHENTICATING...';
+    errEl.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Authentication failed');
+
+      localStorage.setItem('vc_token', data.token);
+      localStorage.setItem('vc_user',  data.username);
+      window.location.href = '/';
+    } catch (e) {
+      errEl.textContent = '[ERROR] ' + e.message;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'AUTHENTICATE';
+    }
+  }
+</script>
+</body>
+</html>

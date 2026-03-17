@@ -390,3 +390,42 @@ function pollStatus() {
     } catch(e) { clearInterval(pollInterval); log(`[ERROR] POLL_FAILED: ${e.message}`, 'red'); }
   }, 3000);
 }
+
+// ── Auth guard ────────────────────────────────────────
+(function checkAuth() {
+  const token = localStorage.getItem('vc_token');
+  if (!token && !window.location.pathname.includes('login')) {
+    window.location.href = '/login';
+    return;
+  }
+})();
+
+// Intercepta todos los fetch para agregar Authorization automáticamente
+const _fetch = window.fetch;
+window.fetch = function(url, opts = {}) {
+  const token = localStorage.getItem('vc_token');
+  if (token && typeof url === 'string' && url.startsWith('/api')) {
+    opts.headers = { ...(opts.headers || {}), 'Authorization': 'Bearer ' + token };
+  }
+  return _fetch(url, opts).then(res => {
+    if (res.status === 401) {
+      localStorage.removeItem('vc_token');
+      window.location.href = '/login';
+    }
+    return res;
+  });
+};
+
+function logout() {
+  localStorage.removeItem('vc_token');
+  localStorage.removeItem('vc_user');
+  window.location.href = '/login';
+}
+
+function exportReport(format) {
+  window.open(`/api/reports/last/export?format=${format}`, '_blank');
+}
+
+// En DOMContentLoaded, mostrar el usuario:
+const userEl = document.getElementById('sys-user');
+if (userEl) userEl.textContent = localStorage.getItem('vc_user') || 'admin';

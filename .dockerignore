@@ -1,0 +1,8 @@
+scanner/target/
+dist/
+data/
+*.db
+.git/
+.env*
+release/
+vulncore-release.zip

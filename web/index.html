@@ -31,6 +31,10 @@
       root@vulncore / <span id="current-view" class="view-name">dashboard</span>
     </div>
     <div class="sys-tag" id="sys-time"></div>
+    <span class="sys-tag" id="sys-user" style="color:var(--text-2)"></span>
+    <button class="btn btn-secondary" style="font-size:10px;padding:6px 12px" onclick="exportReport('json')">↓ JSON</button>
+    <button class="btn btn-secondary" style="font-size:10px;padding:6px 12px" onclick="exportReport('csv')">↓ CSV</button>
+    <button class="btn btn-secondary" style="font-size:10px;padding:6px 12px" onclick="logout()">⏻</button>
     <button class="btn btn-primary" onclick="openModal()">+ NEW_SCAN</button>
   </header>
 
