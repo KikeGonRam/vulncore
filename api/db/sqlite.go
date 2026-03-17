@@ -1,6 +1,7 @@
 package db
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/driver/sqlite"
@@ -59,7 +60,12 @@ type DB struct {
 }
 
 func Init(path string) (*DB, error) {
-	dsn := path + "?_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-32000&_temp_store=MEMORY&_mmap_size=268435456&_busy_timeout=5000"
+	// WAL mode and memory-mapped I/O are incompatible with in-memory DBs
+	// (used by tests). Only apply performance pragmas for file-based DBs.
+	dsn := path
+	if !strings.Contains(path, ":memory:") {
+		dsn = path + "?_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-32000&_temp_store=MEMORY&_mmap_size=268435456&_busy_timeout=5000"
+	}
 
 	gormDB, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger:                 gormlogger.Default.LogMode(gormlogger.Silent),
