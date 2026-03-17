@@ -60,6 +60,10 @@ async function navigate(page, el) {
 
 // ── Dashboard ─────────────────────────────────────────
 async function loadDashboard() {
+  // Destruir charts existentes antes del fetch para evitar estado stale
+  if (donutChart)    { donutChart.destroy();    donutChart = null; }
+  if (timelineChart) { timelineChart.destroy(); timelineChart = null; }
+
   try {
     const [stats, tl] = await Promise.all([
       fetch(`${API}/dashboard/stats`).then(r => r.json()),
