@@ -1,11 +1,12 @@
 use crate::models::{Package, Severity, Vulnerability};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
 use std::collections::HashSet;
+use tracing::{info, warn};
 
 const OSV_API_BASE: &str = "https://api.osv.dev/v1/query";
-const CISA_KEV_URL: &str = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
+const CISA_KEV_URL: &str =
+    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
 const EPSS_API_BASE: &str = "https://api.first.org/data/v1/epss";
 
 pub struct CveMatcher {
@@ -89,6 +90,12 @@ struct EpssData {
     epss: String,
 }
 
+impl Default for CveMatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CveMatcher {
     pub fn new() -> Self {
         CveMatcher {
@@ -113,7 +120,7 @@ impl CveMatcher {
                         }
                     }
                     vulnerabilities.append(&mut vulns)
-                },
+                }
                 Err(e) => warn!("OSV query failed for {}: {}", pkg.name, e),
             }
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
@@ -155,20 +162,23 @@ impl CveMatcher {
         Ok(exploited)
     }
 
-    async fn fetch_epss_scores(&self, cve_ids: &[String]) -> Result<std::collections::HashMap<String, f32>> {
+    async fn fetch_epss_scores(
+        &self,
+        cve_ids: &[String],
+    ) -> Result<std::collections::HashMap<String, f32>> {
         if cve_ids.is_empty() {
             return Ok(std::collections::HashMap::new());
         }
 
         info!("Fetching EPSS scores for {} CVEs...", cve_ids.len());
         let mut map = std::collections::HashMap::new();
-        
+
         // EPSS API supports comma-separated CVEs
         let chunks = cve_ids.chunks(50); // Process in batches of 50
         for chunk in chunks {
             let cve_list = chunk.join(",");
             let url = format!("{}?cve={}", EPSS_API_BASE, cve_list);
-            
+
             if let Ok(response) = self.client.get(url).send().await {
                 if response.status().is_success() {
                     if let Ok(epss_res) = response.json::<EpssResponse>().await {
@@ -203,12 +213,7 @@ impl CveMatcher {
             version: pkg.version.clone(),
         };
 
-        let response = self
-            .client
-            .post(OSV_API_BASE)
-            .json(&body)
-            .send()
-            .await?;
+        let response = self.client.post(OSV_API_BASE).json(&body).send().await?;
 
         if !response.status().is_success() {
             return Ok(vec![]);

@@ -1,11 +1,11 @@
 use crate::models::{PortResult, PortState};
 use anyhow::Result;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
-use tokio::time::timeout;
 use tokio::sync::Semaphore;
-use std::sync::Arc;
+use tokio::time::timeout;
 use tracing::{debug, warn};
 
 pub struct PortScanner {
@@ -15,7 +15,10 @@ pub struct PortScanner {
 
 impl PortScanner {
     pub fn new(timeout_ms: u64, concurrency: usize) -> Self {
-        PortScanner { timeout_ms, concurrency }
+        PortScanner {
+            timeout_ms,
+            concurrency,
+        }
     }
 
     pub async fn scan(&self, target: &str, range: &str) -> Result<Vec<PortResult>> {
@@ -28,7 +31,6 @@ impl PortScanner {
 
         for port in ports {
             let sem = semaphore.clone();
-            let addr = addr;
             handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.unwrap();
                 let sock_addr = SocketAddr::new(addr, port);
@@ -76,7 +78,8 @@ impl PortScanner {
             let end: u16 = parts[1].parse()?;
             Ok((start..=end).collect())
         } else {
-            let ports: Result<Vec<u16>, _> = range.split(',').map(|p| p.trim().parse::<u16>()).collect();
+            let ports: Result<Vec<u16>, _> =
+                range.split(',').map(|p| p.trim().parse::<u16>()).collect();
             Ok(ports?)
         }
     }
@@ -84,33 +87,33 @@ impl PortScanner {
 
 fn well_known_service(port: u16) -> Option<String> {
     let name = match port {
-        21    => "ftp",
-        22    => "ssh",
-        23    => "telnet",
-        25    => "smtp",
-        53    => "dns",
-        80    => "http",
-        110   => "pop3",
-        111   => "rpcbind",
-        135   => "msrpc",
-        139   => "netbios-ssn",
-        143   => "imap",
-        443   => "https",
-        445   => "smb",
-        993   => "imaps",
-        995   => "pop3s",
-        1433  => "mssql",
-        1521  => "oracle",
-        3306  => "mysql",
-        3389  => "rdp",
-        5432  => "postgresql",
-        5900  => "vnc",
-        6379  => "redis",
-        8080  => "http-alt",
-        8443  => "https-alt",
-        9200  => "elasticsearch",
+        21 => "ftp",
+        22 => "ssh",
+        23 => "telnet",
+        25 => "smtp",
+        53 => "dns",
+        80 => "http",
+        110 => "pop3",
+        111 => "rpcbind",
+        135 => "msrpc",
+        139 => "netbios-ssn",
+        143 => "imap",
+        443 => "https",
+        445 => "smb",
+        993 => "imaps",
+        995 => "pop3s",
+        1433 => "mssql",
+        1521 => "oracle",
+        3306 => "mysql",
+        3389 => "rdp",
+        5432 => "postgresql",
+        5900 => "vnc",
+        6379 => "redis",
+        8080 => "http-alt",
+        8443 => "https-alt",
+        9200 => "elasticsearch",
         27017 => "mongodb",
-        _     => return None,
+        _ => return None,
     };
     Some(name.to_string())
 }
